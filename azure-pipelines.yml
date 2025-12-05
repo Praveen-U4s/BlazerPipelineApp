@@ -49,10 +49,15 @@ steps:
         }
       } | ConvertTo-Json -Depth 5
 
-      # Use the env variable passed in from the pipeline parameter
       $fileName = "appsettings.${{ parameters.buildENV }}.json"
       $projectPath = "$(Build.SourcesDirectory)/$(projectName)"
       $targetPath = Join-Path -Path $projectPath -ChildPath $fileName
+
+      # Ensure the target directory exists
+      $dir = Split-Path $targetPath
+      if (!(Test-Path $dir)) {
+          New-Item -ItemType Directory -Path $dir | Out-Null
+      }
 
       Write-Host "Creating $targetPath"
       Set-Content -Path $targetPath -Value $content -Encoding UTF8
