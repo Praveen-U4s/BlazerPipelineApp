@@ -1,0 +1,83 @@
+trigger:
+- master
+
+pr:
+- master
+
+pool:
+  vmImage: windows-latest
+
+parameters:
+- name: buildENV
+  displayName: Build Environment
+  type: string
+  default: 'development'
+  values:
+    - development
+    - production
+
+variables:
+- name: buildConfiguration
+  value: 'Release'
+- name: publishFolder
+  value: '$(Build.ArtifactStagingDirectory)'
+- name: artifactName
+  value: 'BlazerAppArtifact'
+- name: solution
+  value: '**/*.sln'
+- name: projectName
+  value: BlazerPipelineApp
+
+# Variable Groups based on parameter (compile-time selection)
+- ${{ if eq(parameters.buildENV, 'development') }}:
+  - group: dev-variables
+- ${{ if eq(parameters.buildENV, 'production') }}:
+  - group: prod-variables
+
+steps:
+  - task: DotNetCoreCLI@2
+    displayName: 'dotnet restore'
+    inputs:
+      command: 'restore'
+      projects: '$(solution)'
+
+# Create the environment-specific appsettings file directly in the publish folder
+  - powershell: |
+      $content = @{
+        ConnectionStrings = @{
+          DefaultConnection = "$(ConnectionString)"
+        }
+      } | ConvertTo-Json -Depth 5
+
+      # Use the env variable passed in from the pipeline parameter
+      $fileName = "appsettings.${{ parameters.buildENV }}.json"
+      $projectPath = "$(Build.SourcesDirectory)/$(projectName)"
+      $targetPath = Join-Path -Path $projectPath -ChildPath $fileName
+
+      Write-Host "Creating $targetPath"
+      Set-Content -Path $targetPath -Value $content -Encoding UTF8
+    displayName: "Create appsettings.${{ parameters.buildENV }}.json file in publish folder"
+    env:
+      # compile-time expansion of the parameter into the job step's environment
+      buildENV: ${{ parameters.buildENV }}
+  - task: DotNetCoreCLI@2
+    displayName: 'dotnet build'
+    inputs:
+      command: 'build'
+      projects: '$(solution)'
+      arguments: '--configuration $(buildConfiguration) --no-restore'
+
+  - task: DotNetCoreCLI@2
+    displayName: 'dotnet publish -> $(publishFolder)'
+    inputs:
+      command: 'publish'
+      publishWebProjects: true
+      projects: '$(solution)'
+      arguments: '--configuration $(buildConfiguration) /p:EnvironmentName=${{ parameters.buildENV }} --output $(publishFolder) --no-restore --no-build'
+
+  - task: PublishBuildArtifacts@1
+    displayName: 'Publish artifact to Pipelines (Artifacts)'
+    inputs:
+      pathToPublish: '$(Build.ArtifactStagingDirectory)'
+      artifactName: '$(artifactName)'
+      publishLocation: 'Container'
