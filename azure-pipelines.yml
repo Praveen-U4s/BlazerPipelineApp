@@ -57,18 +57,29 @@ steps:
       ASPNETCORE_ENVIRONMENT: $(EnvFileName)
       ConnectionStrings__DefaultConnection: $(ConnectionStrings.DefaultConnection)
 
+- script: |
+    echo "Creating appsettings files in publish folder"
+    mkdir -p "$BUILD_ARTIFACTSTAGINGDIRECTORY/publish"
+    printf '{\n  "ConnectionStrings": {\n    "DefaultConnection": "%s"\n  }\n}\n' "$DEFAULT_CONN" > "$BUILD_ARTIFACTSTAGINGDIRECTORY/publish/appsettings.$ENV_FILENAME.json"
+    printf '{\n  "ConnectionStrings": {\n    "DefaultConnection": "%s"\n  }\n}\n' "$DEFAULT_CONN" > "$BUILD_ARTIFACTSTAGINGDIRECTORY/publish/appsettings.json"
+  displayName: 'Inject connection string into published appsettings'
+  env:
+    DEFAULT_CONN: $(ConnectionStrings.DefaultConnection)
+    ENV_FILENAME: $(EnvFileName)
+    BUILD_ARTIFACTSTAGINGDIRECTORY: $(Build.ArtifactStagingDirectory)
+
 - task: ArchiveFiles@2
   displayName: 'Archive publish output to ZIP'
   inputs:
     rootFolderOrFile: '$(Build.ArtifactStagingDirectory)/publish'
     includeRootFolder: false
     archiveType: 'zip'
-    archiveFile: '$(Build.ArtifactStagingDirectory)/publish.zip'
+    archiveFile: '$(Build.ArtifactStagingDirectory)/BlazerPipelineApp.zip'
     replaceExistingArchive: true
 
 - task: PublishBuildArtifacts@1
   displayName: 'Publish artifact (ZIP)'
   inputs:
-    pathToPublish: '$(Build.ArtifactStagingDirectory)/publish.zip'
+    pathToPublish: '$(Build.ArtifactStagingDirectory)/BlazerPipelineApp.zip'
     artifactName: 'BlazerPipelineApp'
     publishLocation: 'Container'
