@@ -1,4 +1,4 @@
-﻿# Azure Pipelines CI for .NET 8 Blazor project
+# Azure Pipelines CI for .NET 8 Blazor project
 # Triggers on pushes to branch 'master' (also include 'main' for compatibility)
 parameters:
 - name: environment
@@ -24,19 +24,21 @@ variables:
   value: 'Release'
 - name: solution
   value: '**/*.sln'
-- name: EnvFileName
-  ${{ if eq(parameters.environment, 'Development') }}: value: 'Development'
-  ${{ if eq(parameters.environment, 'Staging') }}: value: 'Staging'
-  ${{ if eq(parameters.environment, 'Production') }}: value: 'Production'
 
-# Variable Groups
+# Conditional variables and variable groups
 - ${{ if eq(parameters.environment, 'Development') }}:
+  - name: EnvFileName
+    value: 'Development'
   - group: Sample-Blazer-App-Dev
 
 - ${{ if eq(parameters.environment, 'Staging') }}:
+  - name: EnvFileName
+    value: 'Staging'
   - group: Sample-Blazer-App-Staging
 
 - ${{ if eq(parameters.environment, 'Production') }}:
+  - name: EnvFileName
+    value: 'Production'
   - group: Sample-Blazer-App-Prod
 
 steps:
