@@ -24,19 +24,10 @@ variables:
   value: 'Release'
 - name: solution
   value: '**/*.sln'
-
-# Map environment parameter → ASP.NET ENV name
-- ${{ if eq(parameters.environment, 'Development') }}:
-  - name: EnvFileName
-    value: 'Development'
-
-- ${{ if eq(parameters.environment, 'Staging') }}:
-  - name: EnvFileName
-    value: 'Staging'
-
-- ${{ if eq(parameters.environment, 'Production') }}:
-  - name: EnvFileName
-    value: 'Production'
+- name: EnvFileName
+  ${{ if eq(parameters.environment, 'Development') }}: value: 'Development'
+  ${{ if eq(parameters.environment, 'Staging') }}: value: 'Staging'
+  ${{ if eq(parameters.environment, 'Production') }}: value: 'Production'
 
 # Variable Groups
 - ${{ if eq(parameters.environment, 'Development') }}:
