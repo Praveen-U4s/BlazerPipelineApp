@@ -1,15 +1,52 @@
-# Azure Pipelines CI for .NET 8 Razor/Blazor project
-# Triggers on pushes to branch 'master'
+﻿# Azure Pipelines CI for .NET 8 Blazor project
+# Triggers on pushes to branch 'master' (also include 'main' for compatibility)
+parameters:
+- name: environment
+  displayName: Target Environment
+  type: string
+  default: Development
+  values:
+    - Development
+    - Staging
+    - Production
+
 trigger:
   branches:
     include:
       - master
+      - main
 
 pool:
   vmImage: 'ubuntu-latest'
 
 variables:
-  buildConfiguration: 'Release'
+- name: buildConfiguration
+  value: 'Release'
+- name: solution
+  value: '**/*.sln'
+
+# Map environment parameter → ASP.NET ENV name
+- ${{ if eq(parameters.environment, 'Development') }}:
+  - name: EnvFileName
+    value: 'Development'
+
+- ${{ if eq(parameters.environment, 'Staging') }}:
+  - name: EnvFileName
+    value: 'Staging'
+
+- ${{ if eq(parameters.environment, 'Production') }}:
+  - name: EnvFileName
+    value: 'Production'
+
+# Variable Groups
+- ${{ if eq(parameters.environment, 'Development') }}:
+  - group: Sample-Blazer-App-Dev
+
+- ${{ if eq(parameters.environment, 'Staging') }}:
+  - group: Sample-Blazer-App-Staging
+
+- ${{ if eq(parameters.environment, 'Production') }}:
+  - group: Sample-Blazer-App-Prod
 
 steps:
 - task: NuGetToolInstaller@1
@@ -21,8 +58,11 @@ steps:
 - script: dotnet build --configuration $(buildConfiguration) --no-restore
   displayName: 'dotnet build'
 
-- script: dotnet publish --configuration $(buildConfiguration) --output $(Build.ArtifactStagingDirectory)/publish --no-build
+- script: dotnet publish --configuration $(buildConfiguration) --output $(Build.ArtifactStagingDirectory)/publish /p:EnvironmentName=$(EnvFileName) --no-build
   displayName: 'dotnet publish'
+  env:
+      ASPNETCORE_ENVIRONMENT: $(EnvFileName)
+      ConnectionStrings__DefaultConnection: $(ConnectionStrings.DefaultConnection)
 
 - task: ArchiveFiles@2
   displayName: 'Archive publish output to ZIP'
@@ -36,6 +76,6 @@ steps:
 - task: PublishBuildArtifacts@1
   displayName: 'Publish artifact (ZIP)'
   inputs:
-    PathtoPublish: '$(Build.ArtifactStagingDirectory)/publish.zip'
-    ArtifactName: 'BlazerWebApp'
+    pathToPublish: '$(Build.ArtifactStagingDirectory)/publish.zip'
+    artifactName: 'BlazerPipelineApp'
     publishLocation: 'Container'
