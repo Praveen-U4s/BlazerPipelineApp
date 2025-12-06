@@ -58,15 +58,40 @@ steps:
       ConnectionStrings__DefaultConnection: $(ConnectionStrings.DefaultConnection)
 
 - script: |
-    echo "Creating appsettings files in publish folder"
-    mkdir -p "$BUILD_ARTIFACTSTAGINGDIRECTORY/publish"
-    printf '{\n  "ConnectionStrings": {\n    "DefaultConnection": "%s"\n  }\n}\n' "$DEFAULT_CONN" > "$BUILD_ARTIFACTSTAGINGDIRECTORY/publish/appsettings.$ENV_FILENAME.json"
-    printf '{\n  "ConnectionStrings": {\n    "DefaultConnection": "%s"\n  }\n}\n' "$DEFAULT_CONN" > "$BUILD_ARTIFACTSTAGINGDIRECTORY/publish/appsettings.json"
-  displayName: 'Inject connection string into published appsettings'
+    echo "Updating connection string in appsettings..."
+
+    publishFolder="$(Build.ArtifactStagingDirectory)/publish"
+    mkdir -p "$publishFolder"
+
+    # Determine which appsettings file to modify
+    if [ -n "$ENV_FILENAME" ]; then
+        targetFile="$publishFolder/appsettings.$ENV_FILENAME.json"
+    else
+        targetFile="$publishFolder/appsettings.json"
+    fi
+
+    echo "Target file: $targetFile"
+
+    # Ensure the file exists (copy from source if needed)
+    if [ ! -f "$targetFile" ]; then
+        echo "File not found in publish folder, copying original..."
+        cp "**/appsettings.$ENV_FILENAME.json" "$targetFile" 2>/dev/null || cp "**/appsettings.json" "$targetFile"
+    fi
+
+    echo "Injecting connection string..."
+
+    # Update JSON (ONLY modify DefaultConnection)
+    jq --arg conn "$DEFAULT_CONN" \
+       '.ConnectionStrings.DefaultConnection = $conn' \
+       "$targetFile" > "$targetFile.tmp"
+
+    mv "$targetFile.tmp" "$targetFile"
+
+    echo "Connection string updated successfully."
+  displayName: "Inject connection string into published appsettings"
   env:
     DEFAULT_CONN: $(ConnectionStrings.DefaultConnection)
     ENV_FILENAME: $(EnvFileName)
-    BUILD_ARTIFACTSTAGINGDIRECTORY: $(Build.ArtifactStagingDirectory)
 
 - task: ArchiveFiles@2
   displayName: 'Archive publish output to ZIP'
